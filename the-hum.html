@@ -1,0 +1,992 @@
+<title>The Hum</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: a night-shift control panel. Story column on the left, a reporter's notebook + resident gauges on the right; a live "hum" waveform strip runs across the top. */
+:root {
+  --bg: #e9ece9;
+  --surface: #f6f7f5;
+  --fg: #14191b;
+  --muted: #586366;
+  --line: #c9d0ce;
+  --accent: #a96200;      /* status-LED amber */
+  --accent-ink: #ffffff;
+  --cool: #2c6f73;        /* chiller-loop teal for gauges */
+  --warn: #b23a2a;
+  --wave: #a96200;
+  --f-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1215; --surface: #161c20; --fg: #e3e7e5; --muted: #8d989b; --line: #263036;
+    --accent: #f0a43a; --accent-ink: #14191b; --cool: #6cb9bb; --warn: #ef7a66; --wave: #f0a43a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1215; --surface: #161c20; --fg: #e3e7e5; --muted: #8d989b; --line: #263036;
+  --accent: #f0a43a; --accent-ink: #14191b; --cool: #6cb9bb; --warn: #ef7a66; --wave: #f0a43a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 17px; line-height: 1.6;
+}
+a { color: var(--accent); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.topbar {
+  border-bottom: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px;
+}
+.topbar-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.brand {
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+  display: flex; gap: 10px; align-items: center;
+}
+.led { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink 2.4s infinite; }
+@keyframes blink { 0%,90%,100% { opacity: 1 } 95% { opacity: .25 } }
+.wave-wrap { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 10px; }
+#wave { width: 100%; height: 32px; display: block; }
+.hz { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sound-btn {
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: .06em;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 4px;
+  padding: 6px 10px; cursor: pointer;
+}
+.sound-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.page {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+.grid {
+  max-width: 1120px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 48px; align-items: start;
+}
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
+
+.story { min-width: 0; max-width: 680px; }
+.stamp {
+  font-family: var(--f-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+}
+.stamp span + span { color: var(--muted); }
+.part {
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+  display: inline-block; border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px; margin-bottom: 12px;
+}
+h1, h2 { font-family: var(--f-display); text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.02; margin: 14px 0 18px; font-weight: 700; }
+h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.08; margin: 12px 0 18px; font-weight: 700; }
+.prose p { margin: 0 0 1em; }
+.prose p.dek { font-size: 20px; color: var(--muted); }
+.prose em { font-style: italic; }
+.quote { border-left: 3px solid var(--accent); padding-left: 16px; font-style: italic; color: var(--muted); }
+
+.choices { display: grid; gap: 12px; margin-top: 28px; }
+.choice {
+  text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 12px; align-items: baseline;
+  transition: border-color .15s, transform .15s;
+}
+.choice:hover { border-color: var(--accent); transform: translateX(3px); }
+.choice .k { font-family: var(--f-mono); font-size: 12px; color: var(--accent); }
+.choice .t { font-family: var(--f-display); font-size: 18px; font-weight: 600; line-height: 1.3; }
+.choice .s { display: block; font-family: var(--f-body); font-size: 15px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+.residents { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-top: 24px; }
+@media (max-width: 720px) { .residents { grid-template-columns: minmax(0,1fr); } }
+.resident {
+  text-align: left; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 16px; display: flex; flex-direction: column; gap: 6px;
+}
+.resident:hover { border-color: var(--accent); }
+.resident .role { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.resident .name { font-family: var(--f-display); font-size: 22px; font-weight: 700; line-height: 1.15; }
+.resident .bio { font-size: 15px; color: var(--muted); line-height: 1.45; }
+.resident .done { font-family: var(--f-mono); font-size: 11px; color: var(--cool); }
+
+.side { min-width: 0; display: grid; gap: 28px; position: sticky; top: 16px; }
+@media (max-width: 860px) { .side { position: static; } }
+.panel-label { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.gauges { display: grid; gap: 12px; }
+.gauge { display: grid; grid-template-columns: 74px minmax(0,1fr) 34px; align-items: center; gap: 10px; font-family: var(--f-mono); font-size: 12px; }
+.bar { height: 8px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--cool); width: 50%; transition: width .5s ease, background .3s; }
+.bar i.low { background: var(--warn); }
+.gauge .v { text-align: right; font-variant-numeric: tabular-nums; }
+.delta { font-family: var(--f-mono); font-size: 12px; color: var(--muted); min-height: 1.4em; margin-top: 8px; }
+
+.notebook {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--line) 27px 28px);
+  background-position: 0 46px;
+}
+.notebook h3 { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; font-weight: 600; }
+.notebook p { font-size: 15px; line-height: 28px; margin: 0 0 8px; }
+.notebook .src { font-family: var(--f-mono); font-size: 11px; line-height: 1.5; margin-top: 10px; color: var(--muted); display: grid; gap: 4px; }
+.notebook .src a { word-break: break-word; }
+.notebook.empty p { color: var(--muted); font-style: italic; }
+
+.ending-card { border-top: 3px solid var(--accent); padding-top: 18px; margin-top: 28px; }
+.ending-card .final { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin: 14px 0 22px; }
+.ending-card .final div { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+.ending-card .final b { display: block; font-family: var(--f-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.ending-card .final span { font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn {
+  cursor: pointer; border-radius: 4px; padding: 10px 16px; font-family: var(--f-display); font-weight: 600; font-size: 16px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+}
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+
+.footnote { font-size: 14px; color: var(--muted); margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+.scene { animation: rise .45s ease both; }
+@keyframes rise { from { transform: translateY(8px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .scene, .led { animation: none; }
+  .choice { transition: none; }
+}
+</style>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="led" aria-hidden="true"></span>Data Center Alley · Ashburn, VA</div>
+    <div class="wave-wrap">
+      <canvas id="wave" aria-hidden="true"></canvas>
+      <span class="hz" id="hz">ambient 38 dBA</span>
+    </div>
+    <button class="sound-btn" id="soundBtn" aria-pressed="false" type="button">Hear it</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="grid">
+    <article class="story" id="story" aria-live="polite"></article>
+    <aside class="side">
+      <section id="gaugeBox" hidden>
+        <p class="panel-label" id="who">Resident</p>
+        <div class="gauges" id="gauges"></div>
+        <div class="delta" id="delta"></div>
+      </section>
+      <section class="notebook" id="notebook"></section>
+    </aside>
+  </div>
+</main>
+
+<script>
+/* ---------- Sources (reporter's notebook) ---------- */
+const SRC = {
+  story:  ["Loudoun County: Data Centers, The Loudoun Story", "https://www.loudoun.gov/6408/Data-Centers-The-Loudoun-Story"],
+  county: ["Loudoun County: Data Centers in Loudoun", "https://www.loudoun.gov/6247/Data-Centers"],
+  noise:  ["Loudoun County: Data Centers, Noise & Air Quality", "https://www.loudoun.gov/6405/Data-Centers-Noise-and-Air-Quality"],
+  wjla:   ["WJLA: Data center noise, fumes create flood of complaints", "https://wjla.com/news/local/data-center-noise-fumes-create-flood-of-complaints-in-loudoun-county-virginia-board-of-supervisors-sterling"],
+  bi:     ["Business Insider: It sucks to live next to a data center (2023)", "https://www.businessinsider.nl/it-sucks-to-live-next-to-a-data-center"],
+  ksl:    ["KSL: Life inside 'Data Center Alley'", "https://www.ksl.com/article/news/business/life-inside-data-center-alley-what-utah-can-learn-from-loudoun-county-virginia/51594843"],
+  merc1:  ["Virginia Mercury: Loudoun neighbors fight proposed Dominion lines (Aug 2025)", "https://virginiamercury.com/2025/08/14/loudoun-county-neighbors-fight-proposed-dominion-transmission-lines-for-data-center-alley/"],
+  merc2:  ["Virginia Mercury: Loudoun residents take fight to the SCC (Dec 2025)", "https://virginiamercury.com/2025/12/16/loudoun-residents-take-fight-against-high-voltage-power-lines-for-data-center-alley-to-scc/"],
+  merc3:  ["Virginia Mercury: NoVA lawmakers urge SCC to find new options (Aug 2025)", "https://virginiamercury.com/2025/08/27/nova-lawmakers-urge-scc-to-find-new-options-for-transmission-lines-that-would-cut-ashburn-community/"],
+  wjla2:  ["WJLA: Loudoun homeowners appear to lose battle over lines (Jul 2026)", "https://wjla.com/news/local/loudoun-county-homeowners-appear-to-lose-battle-with-dominion-energy-data-center-transmission-lines-state-corporation-commission-july-2026"],
+  vb:     ["Virginia Business: SCC orders Dominion to shift transmission costs (Aug 2026)", "https://virginiabusiness.com/scc-orders-dominion-to-develop-policy-shifting-transmission-costs-to-data-centers/"],
+  pec:    ["Piedmont Environmental Council: Three things to know about data centers", "https://www.pecva.org/?p=41525"],
+  vbrules:["Virginia Business: Loudoun supervisors shake up data center regulations", "https://virginiabusiness.com/loudoun-county-supervisors-shake-up-data-center-regulations/"],
+  quantum:["Blue Ridge Leader: Supervisors criticize Quantum Park data center expansion", "https://blueridgeleader.com/its-absurd-loudoun-supervisors-criticize-quantum-park-data-center-expansion/"],
+};
+
+/* ---------- Residents ---------- */
+const RESIDENTS = {
+  dana:   { name: "Dana Okafor", role: "Homeowner · school bus driver", bio: "Bought a townhouse in 2019, backing onto an open hay field. Then a yellow zoning sign went up on the fence.", start: { sleep: 70, savings: 55, voice: 25 }, first: "D0" },
+  marcus: { name: "Marcus Bell", role: "Retiree · HOA volunteer", bio: "Retired Navy logistics officer, and the one person in his HOA who reads every page of a zoning application.", start: { sleep: 75, savings: 60, voice: 35 }, first: "M0" },
+  priya:  { name: "Priya Raman", role: "Renter · data center technician", bio: "An HVAC apprentice when the campus off Route 28 was proposed. Now she keeps it running, and her neighbors know it.", start: { sleep: 65, savings: 70, voice: 20 }, first: "P0" },
+};
+
+/* ---------- Scenes ----------
+   hum: 0..1 drives the waveform + optional audio tone
+   fx: stat changes applied when the choice is taken
+   note: reporter's notebook entry for the scene                      */
+const P1 = "Part 1 · The vote", P2 = "Part 2 · Construction";
+const NOTE_PROFFERS = { h: "Proffers", p: ["In Virginia, a developer asking for a rezoning can offer \"proffers\": written promises about setbacks, tree buffers, walls, road money or other limits. Once the Board approves the rezoning, the proffers stay with the land.", "At Loudoun data center hearings, residents have pushed for noise studies and quieter equipment. At a 2025 hearing on an Ashburn expansion, supervisors openly questioned building more data centers near homes."], src: ["quantum"] };
+const S = {
+/* ===== DANA, prologue: the rezoning ===== */
+D0: { who: "dana", part: P1, when: "March 2022 · 7:05 p.m.", where: "Board of Supervisors hearing room, Leesburg", hum: .05,
+  title: "The yellow sign",
+  body: [
+    "Last fall a yellow sign went up on the fence by the field behind your townhouse. <em>Rezoning application.</em> You looked it up. A developer wants to turn 40 acres of hay field into a data center campus: two buildings and an electrical substation.",
+    "Tonight the Board of Supervisors holds the public hearing and votes. You came straight from the bus yard, still in your safety vest. The speaker list closes in ten minutes. There are already 34 names on it.",
+  ],
+  note: { h: "How a data center got approved", p: ["Back then, many Loudoun data centers needed no hearing at all. If the land was already zoned for that use, county staff approved them \"by right.\" Rezoning a farm field was different. It took a public hearing and a Board vote.", "Since March 2025, every new data center in the county needs a special exception, which means a public hearing like this one."], src: ["vbrules", "county"] },
+  choices: [
+    { t: "Sign up to speak against it", s: "Say no, plainly.", fx: { voice: +10 }, flag: "spoke", go: "D1oppose" },
+    { t: "Sign up and ask for conditions", s: "If it's going to pass anyway, make it a better neighbor.", fx: { voice: +10 }, flag: "spoke", go: "D1conditions" },
+    { t: "Stay in your seat and listen", s: "You've never been to one of these. Learn how it works.", fx: {}, go: "D1listen" },
+  ]},
+D1oppose: { who: "dana", part: P1, when: "March 2022 · 9:40 p.m.", where: "At the microphone", hum: .05,
+  title: "Speaker 27",
+  body: [
+    "You tell the board you bought your house because of the field. You tell them your son can see deer from his bedroom window. Your voice shakes for the first fifteen seconds, then it doesn't.",
+    "The developer's attorney answers every concern smoothly. The buildings will meet the county noise ordinance. The campus will pay millions a year in taxes. One supervisor asks whether the company would commit to a sound wall along the townhouses. The attorney says they'd be \"happy to study it.\"",
+  ],
+  note: NOTE_PROFFERS,
+  choices: [
+    { t: "Catch the supervisor's aide at the break", s: "\"Study it\" isn't a promise. Ask for it in writing.", fx: { voice: +5 }, flag: "wall", go: "D2vote" },
+    { t: "Sit down", s: "You said what you came to say.", fx: {}, go: "D2vote" },
+  ]},
+D1conditions: { who: "dana", part: P1, when: "March 2022 · 9:40 p.m.", where: "At the microphone", hum: .05,
+  title: "Three asks",
+  body: [
+    "When your name is called, you skip the speech. You ask for three things: a wider tree buffer, a sound wall along the townhouses, and no generator testing on weekends.",
+    "The developer's attorney says the buildings can't move. The site plan is final. Your district supervisor catches your eye and says she'll push for one of the other two. Probably not both.",
+  ],
+  note: NOTE_PROFFERS,
+  choices: [
+    { t: "Ask her to push for the sound wall", s: "Block the noise.", fx: {}, flag: "wall", go: "D2vote" },
+    { t: "Ask her to push for weekday-only generator testing", s: "Protect the weekends.", fx: {}, flag: "testing", go: "D2vote" },
+  ]},
+D1listen: { who: "dana", part: P1, when: "March 2022 · 7:30 to 11:00 p.m.", where: "Row M, hearing room", hum: .05,
+  title: "Thirty-four speakers",
+  body: [
+    "You listen for three and a half hours. Neighbors talk about deer, traffic and the view. Union electricians in matching shirts talk about apprenticeships and paychecks. A county budget official explains how much data center taxes bring in.",
+    "Then Walt from the end unit of your row stands up and speaks in favor. Lower taxes, he says. Better schools. You didn't know he was coming.",
+  ],
+  note: { h: "Why supervisors say yes", p: ["Data centers pay an enormous share of Loudoun's bills: about $1.2 billion in fiscal 2026, roughly 39% of the county's budget. County officials credit that money with funding schools and services while easing the tax burden on homeowners."], src: ["county"] },
+  choices: [
+    { t: "Stay for the vote", s: "It's almost midnight.", fx: { sleep: -5 }, go: "D2vote" },
+  ]},
+D2vote: { who: "dana", part: P1, when: "March 2022 · 11:52 p.m.", where: "Board of Supervisors hearing room", hum: .05,
+  title: "6–3",
+  body: [
+    "Just before midnight, the board votes. The rezoning passes, 6–3.",
+    (st, f) => f.wall ? "Condition 14 of the approval reads: <em>an 18-foot sound wall along the eastern property line, adjacent to residential units.</em> You fought for that line. You read it twice."
+      : f.testing ? "Condition 11 of the approval reads: <em>routine generator testing limited to weekdays, between 10 a.m. and 2 p.m.</em> That's your condition, in writing."
+      : "The approval has 22 conditions covering landscaping, lighting and stormwater ponds. None of them mention noise.",
+    "Walking to the parking garage, you realize you still have no idea what a data center actually sounds like.",
+  ],
+  note: { h: "What the vote decides", p: ["A rezoning decides what can be built and under what conditions. After that, most of the details move out of public hearings and into permits and inspections."], src: ["county"] },
+  choices: [
+    { t: "Construction begins", s: "Fourteen months later.", fx: {}, go: "D3" },
+  ]},
+D3: { who: "dana", part: P2, when: "Summer 2023", where: "Your back deck", hum: .4, hz: "construction",
+  title: "The field disappears",
+  body: [
+    "The tree line goes first. It takes a week. Then the bulldozers, then the rock blasting. Every afternoon at 2, a horn sounds three times and your windows rattle. A hairline crack appears in the drywall above your son's bed.",
+    "Dump trucks line up on your street at 6 a.m. Floodlights turn the site into daylight all night. Your son thinks it's the best thing that's ever happened. You're tired.",
+    (st, f) => f.wall ? "The sound wall goes up early: a long gray barrier where the field used to be. It does block the trucks. You tell yourself it'll be worth it." : "",
+  ],
+  note: { h: "The construction years", p: ["A data center campus can take years to build, often one building at a time. Construction brings large temporary crews and heavy truck traffic. Once a building opens, far fewer people work there day to day."], src: [] },
+  choices: [
+    { t: "Photograph the crack and file a claim with the contractor", s: "Their insurance should cover it.", fx: { savings: -5, voice: +5 }, go: "D4" },
+    { t: "Call the county about the trucks", s: "They're not supposed to be using your street.", fx: { voice: +5, sleep: -5 }, go: "D4" },
+  ]},
+D4: { who: "dana", part: P2, when: "April 2025 · 11:20 p.m.", where: "Your bedroom", hum: .5,
+  title: "It goes live",
+  body: [
+    "Two years of construction end without a ceremony. One night in April, lying in bed, you notice a sound you've never heard before: a low, steady tone, somewhere under the crickets.",
+    (st, f) => f.wall ? "The wall is right there, eighteen feet tall. It doesn't help. The sound isn't coming from the ground. It's coming from the rows of cooling units on the roof, sixty feet up, far above the top of the wall."
+      : "You get up and stand at the window. The building is dark except for red lights on the roof, where rows of cooling fans have started to turn.",
+    "It doesn't stop the next night, or the one after that.",
+  ],
+  note: { h: "Why the hum starts on day one", p: ["Data centers run around the clock, so their cooling equipment does too. Loudoun says noise complaints frequently involve tonal noise: the steady hum of fans and chillers."], src: ["noise"] },
+  choices: [
+    { t: "Keep going", s: "Three months later.", fx: { sleep: -5 }, go: "A1" },
+  ]},
+
+/* ===== MARCUS, prologue: the campus up the road ===== */
+M0: { who: "marcus", part: P1, when: "June 2021 · 6:30 p.m.", where: "Board of Supervisors hearing room, Leesburg", hum: .05,
+  title: "Page 212",
+  body: [
+    "A developer wants to rezone 100 acres of farmland a mile north of your subdivision for a data center campus: six buildings, eventually. Your HOA board asked you to go to the hearing, because you're the one who actually reads the documents.",
+    "You read all 300 pages. Traffic studies. Stormwater. Landscaping. On page 212, there's one line about power: <em>Electric service to be provided by Dominion Energy.</em> Six buildings that will run day and night, and one sentence.",
+  ],
+  note: { h: "Two different deciders", p: ["The county decides land use: whether a data center can be built. The State Corporation Commission decides on the transmission lines that power it. Those decisions happen separately, often years apart."], src: ["merc2"] },
+  choices: [
+    { t: "Ask the board where the power will come from", s: "Nobody else is going to.", fx: { voice: +10 }, flag: "askedPower", go: "M1power" },
+    { t: "Speak about traffic and the walking trail", s: "The concerns your neighbors actually emailed you.", fx: { voice: +5 }, flag: "trail", go: "M1traffic" },
+    { t: "Email your comments and watch from home", s: "It's a long drive to Leesburg.", fx: { sleep: +5 }, go: "M1home" },
+  ]},
+M1power: { who: "marcus", part: P1, when: "June 2021 · 8:15 p.m.", where: "At the microphone", hum: .05,
+  title: "\"Confirmed capacity\"",
+  body: [
+    "You spend your three minutes on page 212. Six buildings, you say. Where does the power come from? New lines? Through whose backyard?",
+    "A supervisor answers honestly: the county doesn't decide power lines. That's up to Dominion and the state. Then the developer's attorney says something you write down word for word: <em>\"Dominion has confirmed capacity to serve the site.\"</em>",
+  ],
+  note: { h: "Power planning", p: ["Dominion has projected that data center demand on its system will keep climbing for more than a decade. Serving it takes new substations and high-voltage lines, many of them routed through Loudoun."], src: ["pec"] },
+  choices: [
+    { t: "Stay for the vote", s: "", fx: {}, go: "M2vote" },
+  ]},
+M1traffic: { who: "marcus", part: P1, when: "June 2021 · 8:15 p.m.", where: "At the microphone", hum: .05,
+  title: "A traffic light and a tree line",
+  body: [
+    "You talk about the two-lane road your neighbors take to work, and the walking trail along the north edge of the subdivision.",
+    "It works, a little. Before the vote, the developer adds two proffers: money toward a traffic signal, and a 100-foot tree buffer along the trail.",
+  ],
+  note: NOTE_PROFFERS,
+  choices: [
+    { t: "Stay for the vote", s: "", fx: {}, go: "M2vote" },
+  ]},
+M1home: { who: "marcus", part: P1, when: "June 2021 · 10:14 p.m.", where: "Your recliner", hum: .05,
+  title: "The livestream",
+  body: [
+    "You watch from home. Forty-one speakers. Most talk about traffic. A few talk about taxes. Nobody mentions electricity.",
+    "You send in your written comments at 10:14 p.m. You never find out whether anyone read them.",
+  ],
+  note: { h: "Who shows up", p: ["Data center hearings in Loudoun draw residents worried about noise and traffic, along with workers and trade groups who support the projects for the jobs they bring."], src: ["quantum"] },
+  choices: [
+    { t: "Watch the vote", s: "", fx: {}, go: "M2vote" },
+  ]},
+M2vote: { who: "marcus", part: P1, when: "June 2021 · 11:30 p.m.", where: "Board of Supervisors hearing room", hum: .05,
+  title: "Approved, 7–2",
+  body: [
+    "The rezoning passes, 7–2.",
+    (st, f) => f.askedPower ? "In your notebook, under the date, you write the attorney's sentence again and draw a box around it."
+      : f.trail ? "Your HOA newsletter celebrates the tree buffer. You get a round of applause at the next meeting."
+      : "Your neighbors mostly shrug. A mile is a long way, and it's farmland on the other side of the creek.",
+  ],
+  note: { h: "Why supervisors say yes", p: ["County officials credit data center revenue with easing the tax burden on homeowners. In fiscal 2026, data centers brought in about $1.2 billion, roughly 39% of the county budget."], src: ["county"] },
+  choices: [
+    { t: "Construction begins", s: "", fx: {}, go: "M3" },
+  ]},
+M3: { who: "marcus", part: P2, when: "2022 to 2024", where: "The road north of the subdivision", hum: .3, hz: "construction",
+  title: "One building at a time",
+  body: [
+    "The campus goes up one building at a time. Concrete trucks crowd the two-lane road. A crane stands on the skyline, visible from your driveway, for three years.",
+    "Your property tax bill drops a little. The county keeps trimming the rate, and officials say the data centers are why. You don't hate that.",
+    (st, f) => f.trail ? "The tree buffer along the trail gets planted: two rows of skinny saplings that will be tall in fifteen years." : "",
+    "Then, at the edge of the campus, something new appears: a fenced yard of steel and wire. A substation.",
+  ],
+  note: { h: "The substation", p: ["Each campus needs a substation to take power off the high-voltage grid. As more campuses come online, the lines feeding those substations need upgrades or new routes. Who pays for them is one of the biggest fights in Virginia energy policy."], src: ["pec"] },
+  choices: [
+    { t: "Go to Dominion's community meeting about the substation", s: "You still have questions about page 212.", fx: { voice: +5 }, go: "M4" },
+    { t: "Enjoy the lower tax bill", s: "It's a mile away. It's fine.", fx: { savings: +5 }, go: "M4" },
+  ]},
+M4: { who: "marcus", part: P2, when: "Summer 2025", where: "Your kitchen", hum: .15,
+  title: "Capacity",
+  body: [
+    "All six buildings are finished, and another campus is rising beyond them. On still nights, you can hear a faint hum from the north.",
+    (st, f) => f.askedPower ? "You still have the notebook from 2021. <em>Dominion has confirmed capacity.</em> You're about to find out what capacity meant." : "You haven't thought about that hearing in years. You're about to.",
+  ],
+  choices: [
+    { t: "Check the mail", s: "", fx: {}, go: "B1" },
+  ]},
+
+/* ===== PRIYA, prologue: before the job ===== */
+P0: { who: "priya", part: P1, when: "September 2021 · 6:30 p.m.", where: "Board of Supervisors hearing room, Leesburg", hum: .05,
+  title: "Apprentice wages",
+  body: [
+    "You're 24 and halfway through an HVAC apprenticeship, fixing rooftop units on strip malls for apprentice pay. Your instructor told the class to come tonight. The campus up for a vote, off Route 28, will need people who know chillers.",
+    "Your roommate's mother, Rosa Alvarez, is here too. Her townhouse is across the road from the site. She's holding a homemade sign that says <em>NOT IN OUR BEDROOMS</em>.",
+  ],
+  note: { h: "Who shows up", p: ["Data center hearings in Loudoun draw residents worried about noise and traffic, along with workers and trade groups who support the projects for the jobs they bring."], src: ["quantum"] },
+  choices: [
+    { t: "Speak in support", s: "You need this job to exist.", fx: { voice: +5 }, flag: "spokeFor", go: "P1support" },
+    { t: "Sit with Mrs. Alvarez", s: "She looks nervous.", fx: { voice: +5 }, flag: "alvarez", go: "P1alvarez" },
+    { t: "Stand in the back and listen", s: "You don't have to pick a side tonight.", fx: {}, go: "P2vote" },
+  ]},
+P1support: { who: "priya", part: P1, when: "September 2021 · 8:50 p.m.", where: "At the microphone", hum: .05,
+  title: "Two minutes",
+  body: [
+    "You tell the board about your apprenticeship, your student loans, and how few jobs around here pay well without a four-year degree. A row of union electricians claps.",
+    "Walking back to your seat, you pass Mrs. Alvarez. She doesn't look at you.",
+  ],
+  note: { h: "The jobs", p: ["Construction brings large crews for a few years. Once a building is running, it needs a much smaller team of technicians, engineers and security staff. Those jobs can pay well, often without a four-year degree."], src: [] },
+  choices: [
+    { t: "Stay for the vote", s: "", fx: {}, go: "P2vote" },
+  ]},
+P1alvarez: { who: "priya", part: P1, when: "September 2021 · 9:10 p.m.", where: "Row F, hearing room", hum: .05,
+  title: "The other side of the room",
+  body: [
+    "Mrs. Alvarez speaks for three minutes about her bedroom window, which faces the site. She asks the board to require quiet equipment. Her hands shake the whole time.",
+    "When she sits back down, she squeezes your arm. \"You'll work there someday,\" she says. \"Make them be good neighbors.\"",
+  ],
+  note: NOTE_PROFFERS,
+  choices: [
+    { t: "Stay for the vote", s: "", fx: {}, go: "P2vote" },
+  ]},
+P2vote: { who: "priya", part: P1, when: "September 2021 · 11:05 p.m.", where: "Board of Supervisors hearing room", hum: .05,
+  title: "Approved, with conditions",
+  body: [
+    "The rezoning passes. The conditions cover landscaping, building height and lighting.",
+    (st, f) => f.alvarez ? "Nothing about quiet equipment. Mrs. Alvarez doesn't say a word on the drive home." : "Your instructor texts the whole class: <em>Told you. Get your certs.</em>",
+  ],
+  choices: [
+    { t: "Construction begins", s: "Two years later.", fx: {}, go: "P3" },
+  ]},
+P3: { who: "priya", part: P2, when: "2023", where: "The roof of Building 1, off Route 28", hum: .4, hz: "construction",
+  title: "You build it",
+  body: [
+    "A mechanical contractor hires you to help install the cooling equipment on the very campus you watched get approved. There's lots of overtime. You help set rows of rooftop units, each one the size of a car.",
+    "From up there you can see straight into the townhouses across the road. One of those bedroom windows is Mrs. Alvarez's.",
+  ],
+  note: { h: "Where the hum comes from", p: ["Much of the tonal noise neighbors complain about comes from cooling equipment, the chillers and fans that run 24 hours a day."], src: ["noise"] },
+  choices: [
+    { t: "Tell the foreman these units face the houses", s: "Maybe they could be screened.", fx: { voice: +10 }, flag: "raised", go: "P4" },
+    { t: "Keep your head down and bolt them in", s: "You're a contractor. The design isn't yours.", fx: { savings: +5 }, go: "P4" },
+  ]},
+P4: { who: "priya", part: P2, when: "Spring 2024", where: "A job interview at the finished campus", hum: .6,
+  title: "The permanent job",
+  body: [
+    (st, f) => f.raised ? "The foreman passed your comment up the chain. The engineers added a metal screen around the units on the house side. It's a few feet of panel. You have no idea if it'll help." : "The rooftop units went in exactly as drawn.",
+    "When the building opens, the operator hires you as a critical facilities technician: full time, with benefits. You're the only person on your shift who helped install the equipment you now maintain.",
+  ],
+  choices: [
+    { t: "Start your first shift", s: "", fx: { savings: +15 }, go: "C1" },
+  ]},
+
+/* ===== DANA: the noise ===== */
+A1: { who: "dana", when: "Tuesday · 2:41 a.m.", where: "Your bedroom, back of the townhouse", hum: .55,
+  title: "The hum is back",
+  body: [
+    "You wake up before your alarm again. It isn't loud, exactly. It's a low, steady drone, like a refrigerator the size of a building is running just past your fence. Because one is.",
+    "The building behind your row of townhouses went live in the spring. Since then, the sound has never stopped. Your 9-year-old calls it \"the monster breathing.\" Your bus route starts at 5:50.",
+  ],
+  note: { h: "What residents describe", p: ["Many complaints aren't about volume. They're about a constant <em>tone</em>, produced by cooling fans and chillers, that people say they hear even with windows closed.", "Loudoun County says noise complaints are among the most persistent issues it hears about, and that they frequently involve tonal noise."], src: ["noise", "bi"] },
+  choices: [
+    { t: "Record it on your phone", s: "If nobody believes you, maybe they'll believe a recording.", fx: { voice: +10, sleep: -5 }, go: "A2rec" },
+    { t: "Turn on the white-noise machine and try to sleep", s: "Six hours until the first pickup.", fx: { sleep: +5 }, go: "A2ignore" },
+  ]},
+A2rec: { who: "dana", when: "Tuesday · 7:30 p.m.", where: "Neighborhood Facebook group", hum: .5,
+  title: "Sixty-one comments",
+  body: [
+    "Your 40-second clip has 61 comments by dinner. A dozen neighbors say they hear it too. Someone two streets over says it's worse at night. Someone else posts a decibel app screenshot.",
+    (st, f) => f.spoke
+      ? "Then Walt from the end unit chimes in: <span class=\"quote\">\"We had a hearing, Dana. You spoke. You lost. And who do you think keeps your property taxes down?\"</span>"
+      : "Then Walt from the end unit chimes in: <span class=\"quote\">\"There was a public hearing three years ago. I was there. Where were you? And who do you think keeps your property taxes down?\"</span>",
+    "He isn't entirely wrong. That's what makes it hard.",
+  ],
+  note: { h: "Who pays the bills", p: ["Loudoun County says data centers generated about $1.2 billion in real and personal property tax revenue in fiscal 2026, roughly 39% of its overall budget.", "Data centers make up about 73% of the county's commercial tax base. The county has set up a revenue stabilization fund in case that income drops."], src: ["county"] },
+  choices: [
+    { t: "File a noise complaint with the county", s: "There's an online form.", fx: { voice: +5 }, go: "A3complaint" },
+    { t: "Start knocking on doors", s: "One complaint is a crank. Thirty is a pattern.", fx: { voice: +15, sleep: -10, savings: -0 }, go: "A3organize" },
+  ]},
+A2ignore: { who: "dana", when: "Three weeks later · 6:12 a.m.", where: "Bus 214, Route 7 eastbound", hum: .6,
+  title: "You miss a stop",
+  body: [
+    "The white-noise machine covers the hum, mostly. Then it doesn't. You've been sleeping in four-hour pieces. You've added earplugs and a box fan.",
+    "This morning you drive straight past the Hendersons' corner. A second-grader is waving at your taillights. Your dispatcher is kind about it. That makes it worse.",
+  ],
+  note: { h: "Sleep and stress", p: ["In public-records complaints obtained by Business Insider in 2023, residents near data centers described anxiety and disrupted sleep they attributed to the constant noise.", "These are residents' own accounts. The health effects of long-term low-level tonal noise are still being studied."], src: ["bi"] },
+  choices: [
+    { t: "File a noise complaint with the county", s: "You should have done this weeks ago.", fx: { voice: +5, sleep: -5 }, go: "A3complaint" },
+    { t: "Call a real estate agent", s: "Just to find out what the house is worth.", fx: { sleep: -5 }, go: "A3sell" },
+  ]},
+A3complaint: { who: "dana", when: "Two weeks later · 11:00 p.m.", where: "Your back fence, with a county inspector", hum: .55,
+  title: "Within the limit",
+  body: [
+    "An inspector comes out at night, which you appreciate. He sets up a meter at your property line and lets it run for twenty minutes.",
+    "The reading comes in under the county's limit. He's sympathetic. The ordinance measures overall loudness, he explains, not the single low tone that gets inside your head. By the rules as written, there's no violation.",
+    "\"A lot of people are telling us the same thing,\" he says. \"The county's working on it.\"",
+  ],
+  note: { h: "The rules are catching up", p: ["Loudoun says it is looking for new ways to regulate data center noise, including tonal and low-frequency sound, through its Data Center Standards and Locations project.", "In March 2025, the Board of Supervisors voted 7–2 to end \"by-right\" data center development. New data centers now need a special exception, with a public hearing. Buildings already approved aren't affected."], src: ["noise", "county"] },
+  choices: [
+    { t: "Sign up to speak at the Board of Supervisors", s: "Three minutes at the microphone.", fx: { voice: +15, savings: -5 }, go: "A4board" },
+    { t: "Email the data center operator directly", s: "The company has a community-relations address.", fx: { voice: +5 }, go: "A4operator" },
+  ]},
+A3organize: { who: "dana", when: "Saturday · 10:00 a.m. to 4:00 p.m.", where: "Your street and the two behind it", hum: .45,
+  title: "Twenty-three signatures",
+  body: [
+    "You knock on 58 doors. Twenty-three households sign your petition. Some had no idea anyone else heard it. One retired couple has been sleeping in their basement.",
+    "Not everyone signs. The guy across the street manages electrical systems at a campus on Loudoun County Parkway. He says he understands, and he means it, but he's not signing something against his own industry. The family next to him moved here because he got the job.",
+  ],
+  note: { h: "A county split down the middle", p: ["Data centers bring well-paid technical jobs and a large share of the county's tax revenue. They also bring noise, diesel generators, and new power lines into neighborhoods that were built right next to them.", "At a July 2025 town hall, some residents called nearby facilities quiet, clean neighbors and said some noise complaints were unfounded."], src: ["county", "story"] },
+  choices: [
+    { t: "Take the petition to the Board of Supervisors", s: "Bring the neighbors with you.", fx: { voice: +15 }, go: "A4board" },
+    { t: "Send it to the operator first", s: "Give the company a chance to fix it.", fx: { voice: +5 }, go: "A4operator" },
+  ]},
+A3sell: { who: "dana", when: "Thursday · 4:30 p.m.", where: "Your kitchen table, with an agent", hum: .55,
+  title: "What's it worth?",
+  body: [
+    "The agent is upbeat. Ashburn is still in demand. You'd probably make money on what you paid in 2019.",
+    "But when you ask whether the building out back hurts your price, she hesitates. Buyers ask about it now. Some don't care. Some leave the showing after five minutes in the backyard. There aren't enough comparable sales right next to a data center for her to say what it costs you.",
+    "Selling also means a new mortgage at today's rates, a new school for your son, and a longer drive to the bus yard.",
+  ],
+  note: { h: "Home values", p: ["Research on how data centers affect nearby home prices is limited and mixed. Countywide, Loudoun home values have stayed high. Individual homes right next to a facility are harder to judge."], src: ["story"] },
+  choices: [
+    { t: "List the house", s: "You'd rather lose some money than more sleep.", fx: { savings: -20, sleep: +20 }, go: "A_end_move" },
+    { t: "Stay and fight it", s: "This is your house. You were here first. Sort of.", fx: { voice: +10 }, go: "A3complaint" },
+  ]},
+A4board: { who: "dana", when: "Wednesday · 6:00 p.m.", where: "Board of Supervisors meeting, Leesburg", hum: .3,
+  title: "Three minutes",
+  body: [
+    "You signed up as speaker 31. It's after 9 when they call your name. You hold your phone up to the microphone and play the recording. The room goes quiet in a strange way, hearing what you hear every night.",
+    "A supervisor thanks you and says staff are drafting new noise standards. Another reminds the room that data center revenue paid for two new schools. Both things are true. Neither one helps you tonight.",
+  ],
+  note: { h: "Public comment", p: ["Residents have repeatedly brought noise and generator fumes to the Board of Supervisors. WJLA reported a flood of complaints, including from neighbors of a facility in nearby Sterling who said the noise and fumes disturbed their sleep."], src: ["wjla"] },
+  choices: [
+    { t: "Go home and wait for the new standards", s: "These things take time.", fx: { sleep: -5 }, go: "A5" },
+    { t: "Corner the operator's lobbyist in the hallway", s: "He's been sitting in the back row all night.", fx: { voice: +10 }, go: "A5" },
+  ]},
+A4operator: { who: "dana", when: "Nine days later · 12:15 p.m.", where: "A phone call on your lunch break", hum: .45,
+  title: "The site manager calls",
+  body: [
+    (st, f) => "You'd given up on a reply. Then a site manager calls. She's polite and specific. She thinks a rooftop chiller fan may be the source of the tone, and they'll check it. " + (f.wall ? "The ground-level wall was built to the letter of the approval, she points out, but she mentions possible screening around the rooftop units, \"subject to budget.\"" : "She mentions a possible sound wall along the property line, \"subject to budget.\""),
+    "She also mentions, carefully, that the facility meets every county requirement.",
+  ],
+  note: { h: "Operators respond case by case", p: ["Some operators have changed fan settings, added sound walls, or moved equipment after complaints. Without a stricter rule, those fixes are mostly voluntary."], src: ["noise"] },
+  choices: [
+    { t: "Thank her and wait", s: "She seems sincere.", fx: { sleep: +5 }, go: "A5" },
+    { t: "Ask for the sound wall commitment in writing", s: "And copy your supervisor's office.", fx: { voice: +15 }, go: "A5" },
+  ]},
+A5: { who: "dana", when: "First Monday of the month · 10:00 a.m.", where: "Your backyard", hum: 1,
+  title: "Generator test day",
+  body: [
+    "It's your day off. At 10 a.m. the backup generators start their monthly test. The steady hum turns into a roar, like idling trucks lined up behind the fence. Then the smell of diesel drifts over the yard.",
+    (st, f) => f.testing ? "At least it's a weekday. That was your condition, back in 2022. It means the roar comes while most people are at work. You just happen to be home."
+      : f.wall ? "The wall takes the edge off the roar at ground level. The smell goes right over it." : "",
+    "Your son comes inside from the swing set without being told.",
+  ],
+  note: { h: "Backup power", p: ["Data centers keep banks of diesel generators in case the grid fails, and they run them on a schedule to make sure they work. Neighbors have complained about both the noise and the exhaust.", "Some newer sites also run on-site turbines. KSL reported that Sterling residents traced one noise source to gas turbines at a facility that came online in early 2025."], src: ["wjla", "ksl"] },
+  choices: [
+    { t: "Close the windows and take him to the library", s: "It'll be over in an hour.", fx: { sleep: -5 }, go: (st) => st.voice >= 55 ? "A_end_wall" : "A_end_endure" },
+    { t: "Film it and send it to the county", s: "Add it to the file.", fx: { voice: +10 }, go: (st) => st.voice >= 55 ? "A_end_wall" : "A_end_endure" },
+  ]},
+A_end_wall: { who: "dana", end: true, when: "Eight months later", where: "Your back fence", hum: .25,
+  title: (st, f) => f.wall ? "The fans get replaced" : "The wall goes up",
+  body: [
+    (st, f) => f.wall
+      ? "The wall you fought for in 2022 was never going to fix this. In April, the operator replaces the rooftop fans with quieter models and puts screening around them. The tone is still there if you listen for it. But you can sleep with the window cracked."
+      : "A 20-foot sound wall goes up along the back of the property in April. The tone is still there if you listen for it. But you can sleep with the window cracked.",
+    "Your petition and recordings are cited in the county's draft noise standards. They'll apply to new buildings. Whether they ever reach the one behind you is a fight for next year.",
+    "Walt waves at you now. He still thinks you're overreacting.",
+  ]},
+A_end_endure: { who: "dana", end: true, when: "One year later", where: "Same townhouse", hum: .55,
+  title: "You learn to live with it",
+  body: [
+    "Nothing changes, exactly. The fan gets checked. The tone stays. You buy better earplugs, a second white-noise machine, and blackout curtains for the generator days.",
+    "Your son stops calling it the monster. That bothers you more than you expected. It's just the sound of home now.",
+  ]},
+A_end_move: { who: "dana", end: true, when: "Five months later", where: "A rental in Winchester, 50 minutes west", hum: .1,
+  title: "You leave",
+  body: [
+    "The house sells in eleven days, for a little less than your agent hoped. The buyers are a young couple who both work remote. They didn't stay in the backyard very long.",
+    "Your new place is quiet. Your commute to the bus yard is 50 minutes each way. Your son changed schools in the middle of the year.",
+    "Some nights you wake up at 2:40 anyway, listening for something that isn't there.",
+  ]},
+
+/* ===== MARCUS: the power lines ===== */
+B1: { who: "marcus", when: "Monday · 1:15 p.m.", where: "Your kitchen counter", hum: .15,
+  title: "The letter",
+  body: [
+    "The envelope is from the power company. Inside: a map with three colored lines on it. One of them runs along the edge of your subdivision, behind the playground and the walking trail.",
+    "The project would bring high-voltage power to the data center campuses north of you, including the one you watched get approved in 2021. The towers would be taller than any tree in the neighborhood. The letter invites you to an open house.",
+  ],
+  note: { h: "Real fight, real neighborhood", p: ["In 2025, residents of Loudoun Valley Estates in Ashburn organized against a proposed Dominion Energy transmission line that could run through their community to power dozens of data centers.", "Marcus is a composite character. His neighborhood is based on that dispute."], src: ["merc1"] },
+  choices: [
+    { t: "Go to the open house", s: "Hear it from the engineers.", fx: { voice: +5 }, go: "B2open" },
+    { t: "Join the neighborhood group chat", s: "It went from 40 members to 400 overnight.", fx: { voice: +10, sleep: -5 }, go: "B2group" },
+  ]},
+B2open: { who: "marcus", when: "Thursday · 6:30 p.m.", where: "A middle school cafeteria", hum: .2,
+  title: "Maps and cookies",
+  body: [
+    "There are poster boards, engineers in polo shirts, and a plate of cookies nobody touches. An engineer walks you through it. The data centers keep coming, and they need far more power than the current lines can carry.",
+    "\"Why not bury it?\" you ask. Underground lines cost much more, he says. Then he says the part that sticks with you: \"Somebody has to pay for that.\"",
+  ],
+  note: { h: "How much power", p: ["Data centers accounted for about 24% of Dominion's Virginia electricity sales in 2023, according to figures cited by the Piedmont Environmental Council.", "Dominion has projected data center demand on its system could reach about 13 gigawatts by the late 2030s."], src: ["pec"] },
+  choices: [
+    { t: "Push for burying the line", s: "Make the case that it's worth the cost.", fx: { voice: +10 }, go: "B3bury" },
+    { t: "Push for a different route", s: "One of the other colored lines misses your street.", fx: { voice: +5 }, go: "B3route" },
+  ]},
+B2group: { who: "marcus", when: "Two weeks later", where: "The group chat, 11:48 p.m.", hum: .15,
+  title: "Four hundred neighbors",
+  body: [
+    "The chat never sleeps. Yard signs get ordered. Someone builds a website. A neighbor who's an attorney explains that the final decision belongs to the State Corporation Commission in Richmond, and that residents can formally intervene in the case.",
+    "Someone else posts a photo of the tower height drawn next to their house. It gets 200 angry reactions.",
+  ],
+  note: { h: "Who decides", p: ["In Virginia, the State Corporation Commission (SCC) approves major transmission lines. Residents and local governments can take part in the case and testify."], src: ["merc2"] },
+  choices: [
+    { t: "Push for burying the line", s: "Underground or nothing.", fx: { voice: +10 }, go: "B3bury" },
+    { t: "Push for a different route", s: "Just not through here.", fx: { voice: +5 }, go: "B3route" },
+  ]},
+B3bury: { who: "marcus", when: "A month later", where: "Your HOA board meeting", hum: .2,
+  title: "Who pays?",
+  body: [
+    "Burying the line becomes the neighborhood's position. But the cost question doesn't go away. If the extra cost lands on every Dominion customer, then families across Virginia pay for your view.",
+    "So the argument shifts. The data centers need the power. Why shouldn't <em>they</em> pay for the line, buried or not?",
+  ],
+  note: { h: "The cost fight", p: ["Some residents argued the data center industry, not families and ratepayers, should pay to bury lines.", "In August 2026, Virginia Business reported that the SCC directed Dominion to draft a policy requiring data centers and other large customers to pay for the transmission built to serve them."], src: ["merc1", "vb"] },
+  choices: [
+    { t: "Testify at the SCC hearing", s: "A day in Richmond.", fx: { voice: +15, savings: -5, sleep: -5 }, go: "B4scc" },
+    { t: "Write to your state lawmakers", s: "Get them to lean on the SCC.", fx: { voice: +10 }, go: "B4law" },
+  ]},
+B3route: { who: "marcus", when: "A month later", where: "A route-comparison map", hum: .2,
+  title: "Not in my backyard. In theirs?",
+  body: [
+    "You study the alternatives. One of them avoids your subdivision entirely. It runs behind an apartment complex near the highway instead.",
+    "You do some digging. Most of the people in those apartments rent. The letters went to property owners, not tenants. Many of them may not know this is happening.",
+  ],
+  note: { h: "Moving the line moves the problem", p: ["Every route goes past someone. Lawmakers representing the area urged the SCC to find options that wouldn't cut through an Ashburn community."], src: ["merc3"] },
+  choices: [
+    { t: "Keep pushing the other route", s: "You have to protect your own neighborhood.", fx: { voice: +5, sleep: -10 }, go: "B4scc" },
+    { t: "Go knock on doors at the apartments", s: "They deserve to know.", fx: { voice: +15, sleep: -5 }, go: "B4law" },
+  ]},
+B4scc: { who: "marcus", when: "December · 9:30 a.m.", where: "State Corporation Commission, Richmond", hum: .1,
+  title: "Five minutes in Richmond",
+  body: [
+    "You drive two hours to give five minutes of testimony. Utility lawyers with binders sit at one table. Your neighbors, in matching T-shirts, fill three rows behind you.",
+    "You talk about the walking trail, the playground, the 20 years you've lived there. The hearing examiner listens and writes. You can't tell what she thinks.",
+  ],
+  note: { h: "At the SCC", p: ["Loudoun residents took their fight against the high-voltage lines to the SCC in late 2025.", "In July 2026, WJLA reported that the homeowners appeared to have lost their battle over the lines."], src: ["merc2", "wjla2"] },
+  choices: [
+    { t: "Drive home and wait for the ruling", s: "It'll take months.", fx: { sleep: -5 }, go: "B5" },
+  ]},
+B4law: { who: "marcus", when: "Spring", where: "Your state delegate's district office", hum: .1,
+  title: "A letter with signatures",
+  body: [
+    "You bring a stack of signatures to your delegate's office. Some are from your subdivision. Some, now, are from the apartments too.",
+    "The delegate's aide takes notes and promises nothing. Two weeks later, local lawmakers send a letter to the SCC asking for other options.",
+  ],
+  note: { h: "Lawmakers weigh in", p: ["In August 2025, Northern Virginia lawmakers urged the SCC to find new options for transmission lines that would cut through an Ashburn community."], src: ["merc3"] },
+  choices: [
+    { t: "Wait for the ruling", s: "You've done what you can.", fx: { sleep: +5 }, go: "B5" },
+  ]},
+B5: { who: "marcus", when: "The following summer", where: "Your mailbox", hum: .2,
+  title: "The ruling, and the bill",
+  body: [
+    "The decision comes down. The line is approved. Your neighborhood didn't get the outcome it wanted.",
+    "The same week, your electric bill arrives, higher than last year. Whether that's because of data centers, fuel prices, or something else is a fight people are having in Richmond right now.",
+  ],
+  note: { h: "Your bill", p: ["Critics argue data center growth is pushing up residential power rates. The SCC's 2026 order on large-load transmission costs is expected to save ratepayers hundreds of millions of dollars, according to Virginia Business, though critics say it doesn't go far enough."], src: ["vb", "wjla2"] },
+  choices: [
+    { t: "Look back on the fight", s: "", fx: {}, go: (st) => st.voice >= 60 ? "B_end_changed" : "B_end_towers" },
+  ]},
+B_end_changed: { who: "marcus", end: true, when: "Two years later", where: "The walking trail", hum: .3,
+  title: "You lost the line. You moved the money.",
+  body: [
+    "The towers went up. You can see them from the playground. You still walk the trail every morning, and you still hate them a little.",
+    "But the argument you and your neighbors kept making, that the companies who need the power should pay for the wires, became state policy. People three counties away who have never heard of your subdivision will pay a little less because of it.",
+    "And some of the renters from the apartments are on your HOA's emailing list now. They show up to meetings.",
+  ]},
+B_end_towers: { who: "marcus", end: true, when: "Two years later", where: "The walking trail", hum: .3,
+  title: "The towers",
+  body: [
+    "The towers went up. They hum faintly in wet weather. Your neighbor sold and moved to North Carolina. You thought about it too.",
+    "You did your part, you tell yourself: a few meetings, a few emails. It's hard to know if any of it mattered. The next letter from the power company, about the next line, is already on someone else's counter.",
+  ]},
+
+/* ===== PRIYA: inside the building ===== */
+C1: { who: "priya", when: "Friday · 6:45 a.m.", where: "Security vestibule, a campus off Route 28", hum: .7,
+  title: "Badge in",
+  body: [
+    "Badge, palm scan, a two-door security booth that lets one person through at a time. Then the cold aisle: racks of servers stretching farther than you can see, blinking, roaring.",
+    "You're a critical facilities technician. You keep the cooling and the backup power running so the internet doesn't notice anything happened. You started with a trade certificate and no degree. You make more than your parents ever did combined.",
+  ],
+  note: { h: "Data Center Alley", p: ["Loudoun County is home to one of the largest concentrations of data centers in the world, much of it in and around Ashburn. More than 200 are operating in the county, according to WJLA, with more in the pipeline."], src: ["story", "wjla"] },
+  choices: [
+    { t: "Pick up the overtime shift for generator testing", s: "Time and a half.", fx: { savings: +10, sleep: -5 }, go: "C2gen" },
+    { t: "Head out early for your cousin's cookout", s: "Ashburn, Saturday, burgers.", fx: { sleep: +5 }, go: "C2cookout" },
+  ]},
+C2gen: { who: "priya", when: "Monday · 10:00 a.m.", where: "The generator yard", hum: 1,
+  title: "Monthly load test",
+  body: [
+    "You start the generators one by one. Each one is about the size of a shipping container. The yard shakes. You wear ear protection. The townhouses across the road don't have any.",
+    (st, f) => "A ticket in the system says a resident called in a complaint last month: noise and diesel smell during testing, \"every first Monday at 10.\" The ticket is marked <em>closed: within permit</em>." + ((f.alvarez || f.raised) ? " The caller's name is Rosa Alvarez." : ""),
+  ],
+  note: { h: "From the other side of the fence", p: ["Testing backup generators is routine and required for reliability. It's also one of the most common sources of complaints, about noise and exhaust, from neighbors."], src: ["wjla", "noise"] },
+  choices: [
+    { t: "Raise the complaint with your supervisor", s: "Suggest moving the test time, at least.", fx: { voice: +15 }, go: "C3speak" },
+    { t: "Let it go", s: "It's closed. It's within the permit. It's not your call.", fx: { savings: +5 }, go: "C4" },
+  ]},
+C2cookout: { who: "priya", when: "Saturday · 3:00 p.m.", where: "Your cousin's backyard, Ashburn", hum: .4,
+  title: "Everyone looks at you",
+  body: [
+    "Halfway through the burgers, your cousin's neighbor starts in on the data center behind his street. The hum. The generators. The new power lines.",
+    "Your uncle cuts in: those buildings are why the county's tax rate has gone down, and why there's a new rec center. Then the neighbor says, \"Priya works in one. Ask her.\" Everyone turns around.",
+  ],
+  note: { h: "The trade-off, in dollars", p: ["Loudoun officials credit data center revenue with funding schools, roads, and services while easing the tax burden on homeowners. Data centers bring in roughly 39% of the county's budget.", "The county also warns against depending on that money for ongoing costs, and keeps a stabilization fund in case it drops."], src: ["county"] },
+  choices: [
+    { t: "Defend the industry", s: "These are good jobs. The internet has to live somewhere.", fx: { savings: +5, voice: -5 }, go: "C4" },
+    { t: "Admit it's loud", s: "You've stood in the generator yard. You know.", fx: { voice: +15 }, go: "C3speak" },
+  ]},
+C3speak: { who: "priya", when: "The next week", where: "Your supervisor's office", hum: .6,
+  title: "Raising it inside",
+  body: [
+    "You bring it up with your supervisor. She doesn't brush it off. Moving the generator tests to midday on weekdays, when most people are at work, is easy. Replacing the chiller fans that make the tone isn't. That's a capital budget conversation.",
+    "\"Write it up,\" she says. \"Put numbers on it.\"",
+  ],
+  note: { h: "Fixes exist", p: ["Quieter fans, sound walls, moving equipment and rescheduling tests can all reduce what neighbors hear. Under current rules, most of these steps are up to the operator."], src: ["noise"] },
+  choices: [
+    { t: "Write up the proposal", s: "Your own time, your own name on it.", fx: { voice: +10, sleep: -5 }, go: "C4" },
+  ]},
+C4: { who: "priya", when: "Two months later", where: "An all-hands meeting", hum: .65,
+  title: "The expansion",
+  body: [
+    "Your company wants to build two more buildings on the campus. Under the county's new rules, that means a public hearing. Your manager asks employees to show up and speak in support. \"No pressure.\"",
+    (st, f) => f.spokeFor ? "You've done this before. Three years ago you stood at that microphone as an apprentice and asked them to approve this campus. They did." : "You've been to one of these before, back when this campus was a field and you were an apprentice.",
+    (st, f) => (f.alvarez || f.raised) ? "Mrs. Alvarez will be there. She already texted your roommate to ask if you're coming." : "You know the neighbors will be there too. Some of them might be the people from the ticket.",
+  ],
+  note: { h: "New rules, new hearings", p: ["Since Loudoun ended by-right approvals in March 2025, new data centers need a special exception, which includes a public hearing where both employees and neighbors can speak."], src: ["county"] },
+  choices: [
+    { t: "Speak in support", s: "These jobs are real. So is your rent.", fx: { savings: +10, voice: +5 }, go: "C_end_support" },
+    { t: "Speak, and say both things", s: "Support the jobs. Name the noise.", fx: { voice: +20, savings: -5 }, go: "C_end_both" },
+    { t: "Stay home", s: "You'd rather not pick a side in public.", fx: { sleep: +10 }, go: "C_end_home" },
+  ]},
+C_end_support: { who: "priya", end: true, when: "Hearing night", where: "Board of Supervisors, Leesburg", hum: .5,
+  title: "One of thirty in blue shirts",
+  body: [
+    "You speak for two minutes about your job, your certificate, and your plan to buy a place in Loudoun someday. Thirty co-workers in matching shirts clap.",
+    "Then a woman who lives across from the campus plays a recording of the generator test. You recognize the time stamp. It's yours.",
+    "The expansion is approved with conditions. On the drive home, you feel proud and a little sick, both at once.",
+  ]},
+C_end_both: { who: "priya", end: true, when: "Hearing night", where: "Board of Supervisors, Leesburg", hum: .4,
+  title: "Both things are true",
+  body: [
+    "You tell the board this job changed your life. Then you tell them the generators are loud, the chiller tone is real, and the fixes exist. Your manager doesn't look at you.",
+    "Afterward, a woman from the townhouses finds you in the lobby and shakes your hand. The board approves the expansion, with a condition requiring quieter equipment and midday testing.",
+    "At work, the next quarter's budget has a line item for new fans. Nobody says it was your idea. You know.",
+  ]},
+C_end_home: { who: "priya", end: true, when: "Hearing night", where: "Your apartment", hum: .3,
+  title: "You watch the livestream",
+  body: [
+    "You watch from your couch. Your co-workers speak. Your neighbors speak. A supervisor says it's the hardest vote she takes every year.",
+    "The expansion is approved. You keep the job, and the overtime. You never told anyone at the cookout about the ticket in the system. It stays closed.",
+  ]},
+};
+
+/* ---------- State ---------- */
+let state = { scene: "intro", who: null, stats: null, flags: {}, finished: [], hum: .25, lastDelta: "" };
+
+function clamp(n){ return Math.max(0, Math.min(100, n)); }
+
+/* ---------- Rendering ---------- */
+const $story = document.getElementById("story");
+const $note = document.getElementById("notebook");
+const $gaugeBox = document.getElementById("gaugeBox");
+const $gauges = document.getElementById("gauges");
+const $delta = document.getElementById("delta");
+const $who = document.getElementById("who");
+const $hz = document.getElementById("hz");
+
+function srcList(keys){
+  if (!keys || !keys.length) return "";
+  return '<div class="src">' + keys.map(k => `<a href="${SRC[k][1]}" target="_blank" rel="noopener">${SRC[k][0]}</a>`).join("") + "</div>";
+}
+
+function renderGauges(){
+  if (!state.stats) { $gaugeBox.hidden = true; return; }
+  $gaugeBox.hidden = false;
+  const r = RESIDENTS[state.who];
+  $who.textContent = r.name + " · " + r.role.split(" · ")[1];
+  const rows = [["Sleep","sleep"],["Savings","savings"],["Voice","voice"]];
+  $gauges.innerHTML = rows.map(([label,k]) => {
+    const v = state.stats[k];
+    return `<div class="gauge"><span>${label}</span><div class="bar" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v}"><i class="${v<30?'low':''}" style="width:${v}%"></i></div><span class="v">${v}</span></div>`;
+  }).join("");
+  $delta.textContent = state.lastDelta;
+}
+
+function renderIntro(){
+  setHum(.25);
+  $story.innerHTML = `
+    <div class="scene">
+      <div class="stamp"><span>A news game</span><span>Loudoun County, Virginia</span></div>
+      <h1>The Hum</h1>
+      <div class="prose">
+        <p class="dek">Ashburn sits in the middle of the largest cluster of data centers on Earth. The buildings pay a huge share of the county's bills. They also run all night, right next to people's homes.</p>
+        <p>Choose a resident. Each story starts at the public hearing where a data center gets approved, follows the years of construction, and then the years of living next to it. What you do at the hearing comes back later.</p>
+        <p>Every choice shifts three things: how well you sleep, how your finances hold up, and how much say you have in what happens next. There's no perfect ending. There wasn't one for the real people either.</p>
+      </div>
+      <div class="residents">
+        ${Object.entries(RESIDENTS).map(([id,r]) => `
+          <button class="resident" type="button" data-start="${id}">
+            <span class="role">${r.role}</span>
+            <span class="name">${r.name}</span>
+            <span class="bio">${r.bio}</span>
+            ${state.finished.includes(id) ? '<span class="done">✓ Played</span>' : ''}
+          </button>`).join("")}
+      </div>
+      <p class="footnote">The characters and their streets are composites. The policies, numbers, and disputes in the reporter's notebook come from published reporting and county records, linked beside each scene.</p>
+    </div>`;
+  $note.className = "notebook";
+  $note.innerHTML = `<h3>Reporter's notebook</h3>
+    <p>In March 2025, Loudoun supervisors voted 7–2 to end by-right data center construction. New projects now face public hearings.</p>
+    <p>Data centers produced about $1.2 billion in county tax revenue in fiscal 2026, roughly 39% of the budget.</p>
+    ${srcList(["county","story"])}`;
+  renderGauges();
+}
+
+function renderScene(id){
+  const sc = S[id];
+  setHum(sc.hum, sc.hz);
+  const val = x => typeof x === "function" ? x(state.stats, state.flags) : x;
+  const paras = sc.body.map(val).filter(Boolean).map(p => `<p>${p}</p>`).join("");
+  const part = sc.end ? "Ending" : (sc.part || "Part 3 · Living with it");
+  let tail = "";
+  if (sc.end) {
+    const st = state.stats;
+    if (!state.finished.includes(state.who)) state.finished.push(state.who);
+    const others = Object.keys(RESIDENTS).filter(k => !state.finished.includes(k));
+    tail = `<div class="ending-card">
+      <div class="stamp"><span>Ending</span><span>${RESIDENTS[state.who].name}</span></div>
+      <div class="final">
+        <div><b>${st.sleep}</b><span>Sleep</span></div>
+        <div><b>${st.savings}</b><span>Savings</span></div>
+        <div><b>${st.voice}</b><span>Voice</span></div>
+      </div>
+      <div class="btn-row">
+        ${others.length ? `<button class="btn" type="button" data-start="${others[0]}">Play as ${RESIDENTS[others[0]].name.split(" ")[0]}</button>` : ""}
+        <button class="btn ghost" type="button" data-start="${state.who}">Replay ${RESIDENTS[state.who].name.split(" ")[0]}</button>
+        <button class="btn ghost" type="button" data-home="1">All residents</button>
+      </div>
+    </div>`;
+  } else {
+    tail = `<div class="choices">${sc.choices.map((c,i) => `
+      <button class="choice" type="button" data-choice="${i}">
+        <span class="k">${String.fromCharCode(65+i)}</span>
+        <span class="t">${c.t}${c.s ? `<span class="s">${c.s}</span>` : ""}</span>
+      </button>`).join("")}</div>`;
+  }
+  $story.innerHTML = `<div class="scene">
+    <div class="part">${part}</div>
+    <div class="stamp"><span>${sc.when}</span><span>${sc.where}</span></div>
+    <h2>${val(sc.title)}</h2>
+    <div class="prose">${paras}</div>
+    ${tail}
+  </div>`;
+
+  // notebook: endings show a closing note
+  if (sc.note) {
+    $note.className = "notebook";
+    $note.innerHTML = `<h3>Reporter's notebook · ${sc.note.h}</h3>${sc.note.p.map(p=>`<p>${p}</p>`).join("")}${srcList(sc.note.src)}`;
+  } else if (sc.end) {
+    $note.className = "notebook";
+    $note.innerHTML = `<h3>Reporter's notebook · Where things stand</h3>
+      <p>Loudoun is still writing new rules for data center noise, including tonal and low-frequency sound. The state is still deciding how much of the cost of new power lines data centers should carry.</p>
+      <p>Meanwhile, more buildings are in the pipeline.</p>
+      ${srcList(["noise","vb","wjla"])}`;
+  }
+  renderGauges();
+  window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+function render(){
+  if (state.scene === "intro") renderIntro(); else renderScene(state.scene);
+}
+
+function start(id){
+  const r = RESIDENTS[id];
+  state.who = id; state.stats = { ...r.start }; state.flags = {}; state.scene = r.first; state.lastDelta = "";
+  render();
+}
+
+function choose(i){
+  const sc = S[state.scene];
+  const c = sc.choices[i];
+  const parts = [];
+  for (const [k,v] of Object.entries(c.fx || {})) {
+    if (!v) continue;
+    state.stats[k] = clamp(state.stats[k] + v);
+    parts.push(`${k} ${v>0?"+":""}${v}`);
+  }
+  state.lastDelta = parts.length ? "Last choice: " + parts.join(" · ") : "";
+  if (!state.flags) state.flags = {};
+  if (c.flag) state.flags[c.flag] = true;
+  state.scene = typeof c.go === "function" ? c.go(state.stats, state.flags) : c.go;
+  render();
+}
+
+$story.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.start) start(b.dataset.start);
+  else if (b.dataset.choice) choose(+b.dataset.choice);
+  else if (b.dataset.home) { state.scene = "intro"; state.who = null; state.stats = null; render(); }
+});
+
+/* ---------- The hum: waveform + optional tone ---------- */
+const canvas = document.getElementById("wave");
+const ctx = canvas.getContext("2d");
+let humTarget = .25, humNow = .25, t0 = performance.now();
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function setHum(v, label){
+  humTarget = v;
+  const dba = Math.round(35 + v * 40);
+  $hz.textContent = (label || (v > .9 ? "generator test" : "ambient")) + " " + dba + " dBA";
+  if (audio) audio.update();
+}
+
+function draw(now){
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w*dpr)) { canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  humNow += (humTarget - humNow) * 0.04;
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--wave").trim() || "#a96200";
+  const t = reduce ? 0 : (now - t0) / 1000;
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.globalAlpha = .9;
+  ctx.beginPath();
+  const amp = 2 + humNow * (h/2 - 3);
+  for (let x = 0; x <= w; x += 2) {
+    const p = x / w;
+    const y = h/2
+      + Math.sin(p * 38 + t * 6) * amp * .6
+      + Math.sin(p * 91 - t * 11) * amp * .25 * humNow
+      + (humNow > .9 ? (Math.sin(p*230 + t*40) * amp * .25) : 0);
+    x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = .25; ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+let audio = null;
+const soundBtn = document.getElementById("soundBtn");
+soundBtn.addEventListener("click", () => {
+  try {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ac = new AC();
+      const master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 600; lp.connect(master);
+      const tones = [[120, .6], [240, .25], [360, .1]].map(([f, g]) => {
+        const o = ac.createOscillator(); o.type = "sine"; o.frequency.value = f;
+        const gn = ac.createGain(); gn.gain.value = g; o.connect(gn); gn.connect(lp); o.start(); return o;
+      });
+      // brown-ish noise for generator rumble
+      const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = buf.getChannelData(0); let last = 0;
+      for (let i = 0; i < d.length; i++) { last = (last + 0.02 * (Math.random()*2-1)) / 1.02; d[i] = last * 3.5; }
+      const noise = ac.createBufferSource(); noise.buffer = buf; noise.loop = true;
+      const ng = ac.createGain(); ng.gain.value = 0; noise.connect(ng); ng.connect(master); noise.start();
+      audio = { ac, master, ng, on: false, update(){
+        const now = ac.currentTime;
+        const target = this.on ? 0.02 + humTarget * 0.08 : 0;
+        master.gain.setTargetAtTime(target, now, .4);
+        ng.gain.setTargetAtTime(humTarget > .9 ? 1.2 : 0.15 * humTarget, now, .4);
+      }};
+    }
+    audio.on = !audio.on;
+    if (audio.ac.state === "suspended") audio.ac.resume();
+    audio.update();
+    soundBtn.setAttribute("aria-pressed", String(audio.on));
+    soundBtn.textContent = audio.on ? "Mute" : "Hear it";
+  } catch (err) {
+    soundBtn.textContent = "Sound unavailable";
+    soundBtn.disabled = true;
+  }
+});
+
+/* ---------- Boot (keeps progress across live updates) ---------- */
+function boot(data){
+  if (data && data.state) state = data.state;
+  if (!state.flags) state.flags = {};
+  render();
+}
+window.claude?.hot?.snapshot?.(() => ({ state }));
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+</script>
